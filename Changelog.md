@@ -1,3 +1,9 @@
+**2018.1.31 (201801310)**
+- Image backup moved to /data/media to comply with Magisk Hide policies and survive factory resets
+- Major optimizations
+- Two image backups are now performed as opposed to just one
+- Updated reference
+
 **2018.1.24 (201801240)**
 - Automatically find and remove original Magisk image files so that users don't have to
 - General optimizations
