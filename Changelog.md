@@ -1,3 +1,9 @@
+**2018.3.6 (201803060)**
+- Check whether data and cache have the required filesystems
+- Misc optimizations
+- Run magisk_merge.img re-creation service in background to prevent delays/interferences in other Magisk tasks
+- Upgradeable from Magisk Manager
+
 **2018.1.31 (201801310)**
 - Image backup moved to /data/media to comply with Magisk Hide policies and survive factory resets
 - Major optimizations

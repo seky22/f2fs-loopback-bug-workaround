@@ -1,7 +1,7 @@
 id=f2fs-loopback-bug-workaround
 name=F2FS Loopback Bug Workaround
-version=2018.1.31
-versionCode=201801310
-author=VR25 @ XDA Developers
-description=F2FS loopback bug workaround for full Magisk functionality without a custom kernel. Install from recovery mode and forget.
+version=2018.3.6
+versionCode=201803060
+author=VR25 @ xda-developers
+description=F2FS loopback bug workaround for full Magisk functionality without a custom kernel. Install from recovery mode and forget. Updates can be installed from Magisk Manager as well.
 minMagisk=1500

@@ -1,6 +1,6 @@
 #!/sbin/sh -x
 # F2FS Loopback Bug Workaround Installer
-# VR25 @ XDA Developers
+# VR25 @ xda-developers
 
 # Detect whether in boot mode
 ps | grep zygote | grep -v grep >/dev/null && BOOTMODE=true || BOOTMODE=false
@@ -186,9 +186,10 @@ LATESTARTSERVICE=true
 
 ModVersion="`grep_prop version $INSTALLER/module.prop`"
 print_modname() {
+  ui_print " "
   ui_print "*****************************************"
   ui_print "F2FS Loopback Bug Workaround $ModVersion"
-  ui_print "         VR25 @ XDA Developers          "
+  ui_print "         VR25 @ xda-developers          "
   ui_print "*****************************************"
 }
 
@@ -238,7 +239,7 @@ ui_print "******************************"
 ui_print "Powered by Magisk (@topjohnwu)"
 ui_print "******************************"
 
-ui_print "- Mounting partitions"
+$BOOTMODE || ui_print "- Mounting partitions"
 # mount -o ro /system 2>/dev/null
 # mount -o ro /vendor 2>/dev/null
 mount /data 2>/dev/null
@@ -264,81 +265,93 @@ mount /cache 2>/dev/null
 # You can get the Android API version from $API, the CPU architecture from $ARCH
 # Useful if you are creating Android version / platform dependent mods
 
-if ! is_mounted /data; then
-  IMG=/cache/$IMGNAME
-  ui_print " "
-  ui_print "***********************************"
-  ui_print "*      !! Data unavailable !!     *"
-  ui_print "* Magisk detection is impossible  *"
-  ui_print "* Installation will still proceed *"
-  ui_print "*  But please make sure you have  *"
-  ui_print "*        Magisk installed!!       *"
-  ui_print "***********************************"
-  ui_print " "
-fi
+# if ! is_mounted /data; then
+  # IMG=/cache/$IMGNAME
+  # ui_print " "
+  # ui_print "***********************************"
+  # ui_print "*      !! Data unavailable !!     *"
+  # ui_print "* Magisk detection is impossible  *"
+  # ui_print "* Installation will still proceed *"
+  # ui_print "*  But please make sure you have  *"
+  # ui_print "*        Magisk installed!!       *"
+  # ui_print "***********************************"
+  # ui_print " "
+# fi
 
 ##########################################################################################
-
-# Block installation in BOOTMODE
 if $BOOTMODE; then
-  ui_print " "
-  ui_print "(!) This module can only be installed from recovery mode"
-  ui_print " "
-  exit 1
-fi
-
-# Check whether partitions are mounted
-ui_print "- Verifying mounts"
-exxit() {
-	ui_print " "
-	ui_print "(!) $1 partition is not mounted"
-	ui_print " "
-	exit 1
-}
-is_mounted /data || exxit data
-is_mounted /cache || exxit cache
-
-# Check whether cache is F2FS-formated
-ui_print "- Checking cache file system"
-if grep '/cache' /proc/mounts | grep -iq 'f2fs'; then
-  ui_print " "
-  ui_print "(!) Your cache partition file system must not be F2FS"
-  ui_print " "
-  exit 1
-fi
-
-# Restore magisk.img backup
-BkpImg=/data/media/magisk_img_bkp
-[ -f /data/magisk_img_bkp ] && \
-cp -a /data/magisk_img_bkp $BkpImg && \
-rm /data/magisk_img_bkp
-if [ ! -f /cache/magisk_img ] && [ -f "$BkpImg" ]; then
-  ui_print "- Restoring magisk.img backup"
-  cp -a $BkpImg /cache/magisk_img
-fi
-
-# Remove original image files
-ui_print "- Checking for conflicting Magisk image files"
-for e in $(find /data -name magisk*.img 2>/dev/null); do
-	if [ ! -h "$e" ] && ! echo "$e" | grep -iq "magisk_img_bkp"; then
-		ui_print "-- Removing $e"
-		rm "$e" 2>/dev/null
+	# Block installation in BOOTMODE
+	if [ ! -f $MODPATH/module.prop ]; then
+		ui_print " "
+		ui_print "(!) This module can only be installed from recovery mode"
+		ui_print "- Updates can be installed from Magisk Manager"
+		ui_print " "
+		exit 1
 	fi
-done
 
-ui_print "- Implementing workaround"
-IMGC=/cache/magisk_img
-[ -f "$IMGC" ] || make_ext4fs -l 8M $IMGC
-mkdir /data/adb 2>/dev/null
-ln -s $IMGC /data/adb/magisk.img 2>/dev/null
-ln -s $IMGC /data/magisk.img 2>/dev/null
+else
+	# Check whether partitions are mounted
+	ui_print "- Verifying mounts"
+	exxit() {
+		ui_print " "
+		ui_print "(!) $1 partition is not mounted"
+		ui_print " "
+		exit 1
+	}
+	is_mounted /data || exxit data
+	is_mounted /cache || exxit cache
 
+	# Check whether cache is F2FS-formated
+	ui_print "- Checking filesystems"
+	if ! grep '/data' /proc/mounts | grep -iq 'f2fs'; then
+	  ui_print " "
+	  ui_print "(!) Your data partition filesystem is not F2FS"
+	  ui_print "- This module is not for you"
+	  ui_print " "
+	  exit 1
+	fi
+	if grep '/cache' /proc/mounts | grep -iq 'f2fs'; then
+	  ui_print " "
+	  ui_print "(!) Your cache partition file system must not be F2FS"
+	  ui_print "- Use EXT4 or similar"
+	  ui_print " "
+	  exit 1
+	fi
+
+	# Restore magisk.img backup
+	BkpImg=/data/media/magisk_img_bkp
+	[ -f /data/magisk_img_bkp ] && \
+	cp -a /data/magisk_img_bkp $BkpImg && \
+	rm /data/magisk_img_bkp
+	if [ ! -f /cache/magisk_img ] && [ -f "$BkpImg" ]; then
+	  ui_print "- Restoring magisk.img backup"
+	  cp -a $BkpImg /cache/magisk_img
+	fi
+
+	# Remove original image files
+	ui_print "- Checking for conflicting Magisk image files"
+	for e in $(find /data -name magisk*.img 2>/dev/null); do
+		if [ ! -h "$e" ] && ! echo "$e" | grep -iq "magisk_img_bkp"; then
+			ui_print "-- Removing $e"
+			rm "$e" 2>/dev/null
+		fi
+	done
+
+	ui_print "- Implementing workaround"
+	IMGC=/cache/magisk_img
+	[ -f "$IMGC" ] || make_ext4fs -l 64M $IMGC
+	mkdir /data/adb 2>/dev/null
+	if [ -d /data/adb/magisk ]; then
+		ln -s $IMGC /data/adb/magisk.img
+	else
+		ln -s $IMGC /data/magisk.img
+	fi
+fi
 ##########################################################################################
 
 request_zip_size_check "$ZIP"
 
 if [ -f "$IMG" ]; then
-  ui_print "- $IMG detected!"
   image_size_check $IMG
   if [ "$reqSizeM" -gt "$curFreeM" ]; then
 	SIZE=$(((reqSizeM + curUsedM) / 32 * 32 + 64))
@@ -410,7 +423,7 @@ fi
 ui_print "- Setting permissions"
 set_permissions
 
-ui_print "- Unmounting partitions"
+$BOOTMODE || ui_print "- Unmounting partitions"
 
 umount $MOUNTPATH
 losetup -d $LOOPDEVICE
@@ -429,7 +442,7 @@ fi
 #   umount /vendor 2>/dev/null
 # fi
 
-[ "$IMG" = /data/adb/$IMGNAME ] && ln -s "$IMG" /data 2>/dev/null
-
-ui_print "- Done"
+$BOOTMODE && ui_print "- Update complete" \
+	|| ui_print "- Installation complete"
+ui_print " "
 exit 0

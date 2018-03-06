@@ -1,5 +1,5 @@
 # F2FS Loopback Bug Workaround
-## VR25 @ XDA Developers
+## VR25 @ xda-developers
 
 
 ### Disclaimer
@@ -15,11 +15,11 @@
 
 
 ### Installation
-- Due to the nature of the bug, this module can only be installed from recovery mode.
+- Due to the nature of the bug, this module can only be installed from recovery mode. Updates are installable from Magisk Manager as well, though.
 - Install as a regular flashable zip.
 
 
-### Notes
+### Notes/Tips
 - Reinstall every time after clearing /cache to restore the image backup.
 - Always install large modules from recovery mode only -- to avoid issues due to limited cache size.
 
@@ -31,6 +31,12 @@
 
 ### Recent Changes
 
+**2018.3.6 (201803060)**
+- Check whether data and cache have the required filesystems
+- Misc optimizations
+- Run magisk_merge.img re-creation service in background to prevent delays/interferences in other Magisk tasks
+- Upgradeable from Magisk Manager
+
 **2018.1.31 (201801310)**
 - Image backup moved to /data/media to comply with Magisk Hide policies and survive factory resets
 - Major optimizations
@@ -40,8 +46,3 @@
 **2018.1.24 (201801240)**
 - Automatically find and remove original Magisk image files so that users don't have to
 - General optimizations
-
-**2018.1.14 (201801140)**
-- Automatically backup (on boot) & restore (on install/update) /cache/magisk_img -- backup file: /data/magisk_img_bkp
-- Better device compatibility, regardless of TWRP F2FS patching status
-- Works with all Magisk versions currently in use

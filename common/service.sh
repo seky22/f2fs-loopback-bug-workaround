@@ -1,11 +1,11 @@
 #!/system/bin/sh
 # F2FS Loopback Bug Workaround -- magisk_merge.img
-# VR25 @ XDA Developers
+# VR25 @ xda-developers
 
 export PATH="/sbin/.core/busybox:/dev/magisk/bin:$PATH"
 export ModPath=${0%/*}
 
-Actions() {
+BackgroundActions() {
 	# Remount cache partition rw
 	mount -o remount,rw /cache
 	
@@ -16,8 +16,11 @@ Actions() {
 
 	# Create new magisk_merge image
 	make_ext4fs -l 8M /cache/magisk_merge_img 2>/dev/null
-	ln -s /cache/magisk_merge_img /data/adb/magisk_merge.img 2>/dev/null
-	ln -s /cache/magisk_merge_img /data/magisk_merge.img 2>/dev/null
+	if [ -d /data/adb/magisk ]; then
+		ln -s /cache/magisk_merge_img /data/adb/magisk_merge.img
+	else
+		ln -s /cache/magisk_merge_img /data/magisk_merge.img
+	fi
 }
 
-(Actions) &
+(BackgroundActions) &
