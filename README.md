@@ -3,7 +3,9 @@
 
 
 ### Disclaimer
-- This mod is provided as is, without warranty of any kind. I shall not be held responsible for anything that may go wrong due to the use/misuse of it.
+- This software is provided as is, in the hope that it will be useful, but without any warranty. Always read the reference prior to installing/updating it. While no cats have been harmed in any way, shape or form, I assume no responsibility under anything that might go wrong due to the use/misuse of it.
+- A copy of the GNU General Public License, version 3 or newer is included with every version. Please, read it prior to using, modifying and/or sharing any part of this work.
+- To avoid fraud, DO NOT mirror any link associated with the project.
 
 
 ### Description
@@ -12,6 +14,11 @@
 - With this workaround, a patched kernel is dispensable.
 - Cache partition's size is the only limiting factor -- and that's pretty much self-explanatory.
 - The module automatically backs up (on boot) & restores (on install/update) /cache/magisk_img -- backup file: /data/media/magisk_img_bkp
+
+
+### Pre-requisites 
+- Magisk
+- F2FS-formatted data partition
 
 
 ### Installation
@@ -31,6 +38,10 @@
 
 ### Recent Changes
 
+**2018.7.24 (201807240)**
+- Fixed modPath detection issue (Magisk V16.6).
+- Updated documentation
+
 **2018.3.6 (201803060)**
 - Check whether data and cache have the required filesystems
 - Misc optimizations
@@ -42,7 +53,3 @@
 - Major optimizations
 - Two image backups are now performed as opposed to just one
 - Updated reference
-
-**2018.1.24 (201801240)**
-- Automatically find and remove original Magisk image files so that users don't have to
-- General optimizations
