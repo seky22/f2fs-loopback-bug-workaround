@@ -1,34 +1,42 @@
 #!/system/bin/sh
-# F2FS Loopback Bug Workaround -- magisk_merge.img
+# F2FS Loopback Bug Workaround
+# Create magisk_merge.img & backup /cache/magisk_.img
 # VR25 @ xda-developers
 
 
 main() {
 
+  set -u
+
+  modId=f2fsfix
   modPath=${0%/*}
-  PATH=/sbin/.core/busybox:/dev/magisk/bin:$PATH
+  magiskDir=/data/adb
+  Img=/cache/magisk_.img
+  Log=$modPath/${modId}.log
+  imgBkp=$magiskDir/magisk.img.bkp
+  mergeImg=/cache/magisk_merge_.img
+  magiskBin=$magiskDir/magisk/magisk
+  origImg=$magiskDir/magisk_merge.img
 
-  # verbosity engine
-  newLog=$modPath/service.sh_verbose_log.txt
-  oldLog=$modPath/service.sh_verbose_previous_log.txt
-  [[ -f $newLog ]] && mv $newLog $oldLog
-  set -x 2>>$newLog
+  # log engine
+  [ -f "$Log" ] && mv $Log ${Log}.old
+  PS4='[$EPOCHREALTIME] '
+  exec 1>$Log 2>&1
+  set -x
 
-	# remount cache partition rw
-	mount -o remount,rw /cache
-	
-	# backup /cache/magisk_img
-	imgBkp=/data/media/magisk_img_bkp
-	[[ -f $imgBkp ]] && mv $imgBkp /data/media/magisk_img_previous_bkp
-  rm /data/media/last_magisk_img_bkp 2>/dev/null ###
-	[ -f /cache/magisk_img ] && cp -af /cache/magisk_img $imgBkp
+  # remount cache partition rw
+  mount -o remount,rw /cache
 
-	# create new magisk_merge image
-	make_ext4fs -l 8M /cache/magisk_merge_img 2>/dev/null \
-    || make_ext4fs /cache/magisk_merge_img 8M 2>/dev/null
-	[ -d /data/adb/magisk ] \
-		&& ln -s /cache/magisk_merge_img /data/adb/magisk_merge.img \
-		|| ln -s /cache/magisk_merge_img /data/magisk_merge.img
+  # backup /cache/magisk_.img if necessary
+  get_sizeof() { du $1 2>/dev/null | cut -f1; }
+  [ "$(get_sizeof $Img)" != "$(get_sizeof $imgBkp)" ] && cp -af $Img $imgBkp
+
+  # create magisk_merge_.img
+ $magiskBin imgtool create $mergeImg 8
+ [ -f "$mergeImg" ] || $magiskBin --createimg $mergeImg 8 # fallback
+ ln -fs $mergeImg $origImg # link to original location
+ 
+ exit 0
 }
 
 (main) &
