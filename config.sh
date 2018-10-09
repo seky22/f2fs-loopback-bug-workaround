@@ -31,7 +31,7 @@ PROPFILE=false
 POSTFSDATA=false
 
 # Set to true if you need late_start service script
-LATESTARTSERVICE=true
+LATESTARTSERVICE=false
 
 ##########################################################################################
 # Installation Message
@@ -40,7 +40,6 @@ LATESTARTSERVICE=true
 # Set what you want to show when installing your mod
 
 print_modname() {
-  i() { grep_prop $1 $INSTALLER/module.prop; }
   ui_print " "
   ui_print "$(i name) $(i version)"
   ui_print "$(i author)"
@@ -89,7 +88,7 @@ set_permissions() {
   set_perm_recursive  $MODPATH  0  0  0755  0644
 
   # Permissions for executables
-  for f in $MODPATH/bin/* $MODPATH/system/bin/* $MODPATH/system/xbin/*; do
+  for f in $MODPATH/bin/* $MODPATH/system/bin/* $MODPATH/system/xbin/* $MODPATH/*.sh; do
     [ -f "$f" ] && set_perm $f  0  0  0755
   done
 }
@@ -105,149 +104,190 @@ set_permissions() {
 # Make update-binary as clean as possible, try to only do function calls in it.
 
 
+# exit trap (debugging tool)
+debug_exit() {
+  local e=$?
+  echo -e "\n***EXIT $e***\n"
+  set +euxo pipefail
+  set
+  echo
+  echo "SELinux status: $(getenforce 2>/dev/null || sestatus 2>/dev/null)" \
+    | sed 's/En/en/;s/Pe/pe/'
+  exxit $e $e 1>/dev/null 2>&1
+} >&2
+trap debug_exit EXIT
+
+
+install_module() {
+
+  set -euxo pipefail
+
+  # create module paths
+  rm -rf $MODPATH 2>/dev/null || true
+  mkdir -p $MODPATH
+
+  # extract module files
+  ui_print "- Extracting module files"
+  unzip -o "$ZIP" -d $INSTALLER >&2
+  cd $INSTALLER
+  mv common/* $MODPATH/
+
+  set +euxo pipefail
+}
+
+
 exxit() {
-  $BOOTMODE || recovery_cleanup
-  rm -rf $TMPDIR
-	exit $1
+  set +euxo pipefail
+  if [ "$2" -ne 0 ]; then
+    unmount_magisk_img
+    $BOOTMODE || recovery_cleanup
+    set -u
+    rm -rf $TMPDIR
+  fi
+  exit $1
+}
+
+
+exxitM() {
+  ui_print " "
+  ui_print "(!) $1 partition is not mounted!"
+  [ $1 = cache ] \
+    && ui_print "- Note: if your device doesn't have a cache partition, this module is not for you."
+  ui_print " "
+  exxit 1
+}
+
+
+prep_environment() {
+
+  # shell behavior
+  set -euxo pipefail
+
+  curVer=""
+  img=/cache/magisk_.img
+  magiskVer=${MAGISK_VER/.}
+  utilFunc=$MAGISKBIN/util_functions.sh
+  magiskDir=$(echo $MAGISKBIN | sed 's:/magisk::')
+
+  origImg=$magiskDir/magisk.img
+  imgBkp=$magiskDir/magisk.img.bkp
+
+  $BOOTMODE && MOUNTPATH0=$(sed -n 's/^.*MOUNTPATH=//p' $utilFunc | head -n 1) \
+    || MOUNTPATH0=$MOUNTPATH
+
+  curVer=$(grep_prop versionCode $MOUNTPATH0/$MODID/module.prop || true)
+  [ -n "$curVer" ] || curVer=0
 }
 
 
 fix_f2fs() {
 
-  set -ux
-
-  Img=/cache/magisk_.img
-  magiskDir=$(echo $MAGISKBIN | sed 's:/magisk::')
-
-  origImg=$magiskDir/magisk.img
-  imgBkp=$magiskDir/magisk.img.bkp
-  utilFunc=$magiskDir/util_functions.sh
-  MOUNTPATH0=$(sed -n 's/^.*MOUNTPATH=//p' $utilFunc | head -n1)
-
-  curVer="$(grep_prop versionCode $MOUNTPATH0/$MODID/module.prop)"
-  set +u
-  [ -z "$curVer" ] && curVer=0
-  set -u
-
-  # do not support Magisk 16.7 (bugged)
-  if [ "$MAGISK_VER_CODE" -eq 1671 ]; then
-		ui_print " "
-		ui_print "(!) Magisk 16.7 is officially unsupported!"
-		ui_print "- It has some big and scary bugs which love eating several modules' heads."
-    ui_print "- Try a newer Magisk version or downgrade to 15.0-16.6."
-		ui_print " "
-    exxit 1
-  fi
+  prep_environment
 
   # block bootmode installation
   if $BOOTMODE && [ ! -f $MOUNTPATH0/$MODID/module.prop ]; then
 		ui_print " "
-		ui_print "(!) Install from TWRP!"
+		ui_print "(!) Install from custom recovery!"
 		ui_print "- Updates and reinstalls can be carried out from Magisk Manager as well."
 		ui_print " "
 		exxit 1
 	fi
 
   # enforce safe install
-  if $BOOTMODE && [ "$curVer" -lt 201809020 ]; then
+  if $BOOTMODE && [ $curVer -lt 201809020 ]; then
     ui_print " "
     ui_print "(!) Detected legacy version installed!"
     ui_print "- magisk.img must be migrated."
-    ui_print "- Upgrade from TWRP."
+    ui_print "- Upgrade from custom recovery."
     ui_print " "
     exxit 1
   fi
 
   if ! $BOOTMODE; then
-    mount /cache 2>/dev/null
+    mount /cache 2>/dev/null || true
 
-    # check whether partitions are mounted
     ui_print "- Verifying mounts"
-    exxit() {
-      ui_print " "
-      ui_print "(!) $1 partition is not mounted!"
-      ui_print "- Note: if your device doesn't have a cache partition, this module is not for you."
-      ui_print " "
-      exit 1
-    }
-    is_mounted /data || exxit data
-    is_mounted /cache || exxit cache
+    is_mounted /data || exxitM data
+    is_mounted /cache || exxitM cache
 
-    # check whether cache is F2FS-formated
     ui_print "- Checking cache and data file systems"
     if ! grep '/data' /proc/mounts | grep -iq 'f2fs'; then
       ui_print " "
       ui_print "(!) Data partition file system is not F2FS!"
       ui_print "- This module is not for you."
       ui_print " "
-      exit 1
+      exxit 1
     fi
     if ! grep '/cache' /proc/mounts | grep -iq 'ext[2-4]'; then
       ui_print " "
       ui_print "(!) Cache partition file system must be EXT[2-4]!"
       ui_print " "
-      exit 1
+      exxit 1
     fi
 
     # restore magisk.img backup
-    if [ ! -f "$Img" ] && [ -f "$imgBkp" ]; then
+    if [ ! -f "$img" ] && [ -f "$imgBkp" ]; then
       ui_print "- Restoring magisk.img backup"
-      cp -a $imgBkp $Img
+      cp -a $imgBkp $img
     fi
 
     ui_print "- Implementing F2FS workaround"
+
     # legacy support & cleanup
+    set +e
     { mv -f /cache/magisk_img /cache/magisk_.img
-    [ -h "$origImg" ] || mv -f $origImg $Img
+    [ -h $origImg ] || mv -f $origImg $img
     mv -f /data/media/magisk_img_bkp $imgBkp
     rm /data/media/last_magisk_img_bkp; } 2>/dev/null
+    set -e
 
-    if [ ! -f "$Img" ]; then
-      $MAGISKBIN/magisk imgtool create $Img 8 >&2
-      [ -f "$Img" ] || $MAGISKBIN/magisk --createimg $Img 8 >&2 # fallback
+    if [ ! -f $img ]; then
+      $MAGISKBIN/magisk imgtool create $img 8 >&2 \
+        || $MAGISKBIN/magisk --createimg $img 8 >&2 # fallback
     fi
-    mkdir $magiskDir 2>/dev/null
-    ln -fs $Img $origImg # link to original location
+    mkdir -p $magiskDir
+    ln -fs $img $origImg
   fi
-  set +u
+
+  set +euxo pipefail
 }
 
 
-install_module() {
-  set -u
-  # create module paths
-  rm -rf $MODPATH 2>/dev/null
-  mkdir -p $MODPATH
-  set +u
+i() {
+  local p=$INSTALLER/module.prop
+  [ -f $p ] || p=$MODPATH/module.prop
+  grep_prop $1 $p
 }
 
 
 version_info() {
 
-  set -u
-
-  ui_print " "
-  ui_print "  Facebook Support Page: https://facebook.com/VR25-at-xda-developers-258150974794782/"
-  ui_print " "
-
-  whatsNew="- Improved compatibility
-- Major optimizations
+  local c="" whatsNew="- Bug fixes
+- Latest module template, with added sugar.
+- Magisk 15-17.2 support
 - Updated documentation"
 
+  set -euxo pipefail
+
+  ui_print " "
   ui_print "  WHAT'S NEW"
   echo "$whatsNew" | \
     while read c; do
-      ui_print "  $c"
+      ui_print "    $c"
     done
-  ui_print "    "
+  ui_print " "
 
   # a note on untested Magisk versions
-  if [ "$MAGISK_VER_CODE" -gt 1671 ]; then
-    # abort installation
-		ui_print " "
-		ui_print "(i) This Magisk version hasn't been tested by @VR25 as of yet."
-		ui_print "- Should you find any issue, try a newer Magisk version if available, or downgrade to 15.0-16.6."
-    ui_print "- And don't forget to share your experience(s)! ;)"
-		ui_print " "
+  if [ "$magiskVer" -gt 172 ]; then
+    ui_print " "
+    ui_print "(i) This Magisk version hasn't been tested by @VR25!"
+    ui_print "- If you come across any issue, please report."
+    ui_print " "
   fi
+
+  ui_print "  LINKS"
+  ui_print "    - Facebook Page: facebook.com/VR25-at-xda-developers-258150974794782/"
+  ui_print "    - Git Repository: github.com/Magisk-Modules-Repo/f2fs-loopback-bug-workaround/"
+  ui_print "    - XDA Thread: forum.xda-developers.com/apps/magisk/guide-magisk-official-version-including-t3577875/"
+  ui_print " "
 }

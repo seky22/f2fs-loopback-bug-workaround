@@ -1,7 +1,7 @@
 id=f2fs-loopback-bug-workaround
 name=F2FS Loopback Bug Workaround
-version=2018.9.2
-versionCode=201809020
+version=2018.10.9
+versionCode=201810090
 author=VR25 @ xda-developers
-description=Workaround for full Magisk functionality, without a patched kernel. Install from TWRP. Reinstall after cache wipes to restore magisk.img backup. Updates and reinstalls can be carried out from Magisk Manager as well. Install only large modules from recovery if your device's cache partition has a very small size (i.e., only a few Megabytes).
+description=Workaround for full Magisk functionality, without a patched kernel. Install from TWRP. Reinstall after cache wipes to restore magisk.img backup. Updates and reinstalls can be carried out from Magisk Manager as well. Install only large modules from recovery if your device's cache partition is very limited in size (i.e., only a few Megabytes).
 minMagisk=1500
